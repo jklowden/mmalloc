@@ -1,0 +1,5 @@
+*.o
+*~
+TAGS
+sysconf
+t/try
