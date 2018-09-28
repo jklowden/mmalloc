@@ -1,5 +1,6 @@
 *.o
 *~
 TAGS
+libmmalloc.a
 sysconf
 t/try
