@@ -1,4 +1,5 @@
-* mmalloc - A malloc(3) implementation based on mmap
+# mmalloc 
+#### A malloc(3) implementation based on mmap
 
 mmalloc is a C library that replaces the malloc(3) dynamic memory functions defined in the C standard library.  It is useful for testing and debugging because it isolates every allocation (by using operating system resources).  It is not fast or efficient, however, and is probably not suitable for production use.  
 
@@ -13,7 +14,7 @@ Your program source is unchanged.  The header file mmalloc.h redefines malloc et
 
 mmalloc calls mmap(2) for every call to malloc, calloc, or realloc.  It creates an anonymous, private map of at least one page (typically 4096 bytes).  Because each allocation is separately mapped, it is protected by the operating system.  Attempts to write outside the mapped area result in a SIGSEV signal.  By default, SIGSEV results in the process being terminated by the application.  
 
-The pointer returned by mmalloc is near the end of the page allocated by mmap: the last by requested of malloc is the last byte allocated by mmap.  This has two consequences: 
+The pointer returned by mmalloc is near the end of the page allocated by mmap: the last byte requested of malloc is the last byte allocated by mmap.  This has two consequences: 
 
 1.  Attempts to write beyond the end of the requested space result in SIGSEGV. 
 
