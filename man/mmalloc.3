@@ -1,0 +1,142 @@
+.Dd \& September 2018
+.Dt MMALLOC 3m "JKL"
+.Os Linux 
+.Sh NAME
+.Nm libmmalloc
+.Nd an implementation of malloc(3) functions based on mmap(2) 
+.
+.Sh LIBRARY
+.Fl mmalloc
+.Sh SYNOPSIS
+.Fd "#include <mmalloc.h>"
+.Ft void * Fn mmalloc "size_t size"
+.Ft void * Fn mcalloc "size_t nmemb, size_t size"
+.Ft void * Fn mrealloc "void *ptr, size_t size"
+.Ft void Fn mfree "void *ptr"
+.
+.Sh DESCRIPTION
+The
+.Nm
+functions are a drop-in replacement for the standard C library malloc
+functions.  While they
+.Em could
+be called directly, they are normally called through preprocessor
+macros defined in
+.Pa mmalloc.h ,
+which invoke the appropriate
+.Nm
+function and, optionally, log  allocations for later inspection.
+.Nm
+is useful for testing and debugging because it isolates every
+allocation; no write to memory through the returned pointer can
+corrupt memory elsewhere in the application.  Writes beyond the
+requested size are trapped by SIGSEGV, which normally results in
+process termination.  Writes before the requested pointer may also result in SIGSEGV (if they are to another memory  page) or may go unnoticed until the application calls
+.Fn free ,
+at which point
+.Fn mfree
+reports the corruption.
+.Pp
+Each allocation function \(em
+.Fn mmalloc ,
+.Fn mcalloc ,
+and
+.Fn mrealloc
+\(em calls mmap(2).  It creates an anonymous, private map of at least one page (typically 4096 bytes).  Because each allocation is separately mapped, it is protected by the operating system.  Attempts to write outside the mapped area result in a SIGSEV signal.  
+.Pp
+The returned pointer is positioned near the end of the page allocated by mmap: the last byte requested is the last byte allocated by mmap.  This has two consequences: 
+.Bl -enum
+.It
+Attempts to write beyond the end of the requested space result in SIGSEGV. 
+.It 
+The returned pointer may not be on a
+.Dq "paragraph"
+boundary.  This may break assumptions about how malloc works, but
+Posix is silent on the addresses returned by malloc, except to say
+that each returned pointer must be distinct.  For example, on a system
+with 4K pages,
+.Dl char *p = malloc(7)
+will return an address
+.Va p
+such that
+.Dl p % 4096 == 4089 .
+.El
+.
+.Pp
+The unused space between the beginning of the page returned by mmap and the pointer returned by
+.Nm
+is called the
+.Dq "control area" .
+It contains
+.Bl -bullet -compact
+.It
+Some amount of unused space, all zeros.
+.It
+The pointer returned by mmap, and the requested size.
+.It
+A crc32 checksum of the control area.
+.El
+.Pp
+Although mmalloc cannot prevent writes to the control area, writes to
+that area cannot create any problems for mmalloc, and are reported
+when the user calls free, which makes the following checks: 
+.Bl -bullet
+.It
+The user's pointer must be on the first page returned by mmap. 
+.It
+The user's pointer must be in the allocated space, as stored in the control area.
+.It
+.Fn mfree
+computes a CRC on the unused space and saved pointer and length.  The saved CRC must match the computed one.  
+.El
+.Pp
+If
+.Fn mfree
+detects any problem with the unused region, it exits with a message. 
+.
+.Sh IMPLEMENTATION NOTES
+.Nm
+currently calls
+.Fn exit 3
+when it encounters any problem.  This is frequently useful because
+memory corruption tends to corrupt absolutely.  The sooner the problem is discovered, the sooner sanity will prevail.  The error message will show the name of the
+.Em application
+function (and module line number) that called
+.Nm Ns .
+.
+.Sh RETURN VALUES
+.Nm
+functions return values just as the standard library functions do, except that
+they never fail.  Instead of failing, they call
+.Fn exit 3 .
+.Pp
+Calls to allocate zero bytes will succeed or fail, depending on how
+.Fn mmap 2
+reacts.
+.
+.Sh ENVIRONMENT
+.Bl -tag -width MMALLOC
+.It MMALLOC_VERBOSE
+calls
+.Fn warn 3
+with status updates on every allocation and deallocation. 
+.It MMALLOC_LOGDIR
+names a directory in which allocations are logged.  Each allocation creates a file whose name is the address of the returned pointer.  The file contains a single line naming the calling function and the requested size. The file is closed before the 
+.Nm
+function returns.
+It is removed by
+.Fn mfree \& .
+Any files found in the directory after the application exits represent unfreed memory.  They may represent a memory leak or be harmless, as may be determined by the programmer. 
+.
+.Sh ERRORS
+Contrary to the Posix standard, 
+.Nm
+functions do not return errors and do not set
+.Va errno .
+All errors, and any detected corruption, are fatal.  
+.\" .Sh SEE ALSO
+.\" .Sh STANDARDS
+.\" .Sh HISTORY
+.\" .Sh AUTHORS
+.\" .Sh CAVEATS
+.\" .Sh BUGS

@@ -36,3 +36,4 @@ Although mmalloc cannot prevent writes to the unused space and control informati
 
 If mfree detects any problem with the unused region, it exits with a message. 
 
+For further details, see the included manpage.  
