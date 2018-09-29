@@ -117,11 +117,13 @@ reacts.
 .Sh ENVIRONMENT
 .Bl -tag -width MMALLOC
 .It MMALLOC_VERBOSE
+If defined,
+.Nm
 calls
 .Fn warn 3
 with status updates on every allocation and deallocation. 
 .It MMALLOC_LOGDIR
-names a directory in which allocations are logged.  Each allocation creates a file whose name is the address of the returned pointer.  The file contains a single line naming the calling function and the requested size. The file is closed before the 
+Names a directory in which allocations are logged.  Each allocation creates a file whose name is the address of the returned pointer.  The file contains a single line naming the calling function and the requested size. The file is closed before the 
 .Nm
 function returns.
 It is removed by

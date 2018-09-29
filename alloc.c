@@ -229,3 +229,18 @@ mrealloc(void *ptr, size_t size) {
 
   return p;
 }
+
+size_t
+mmsize( void *ptr ) {
+  const struct mgmt_t *pmgmt = (struct mgmt_t*)ptr - 1;
+  return pmgmt->len;
+}
+
+size_t
+mmrequired( size_t size ) {
+  size += mgmt_size;
+
+  if( size < page_size ) return page_size;
+
+  return page_size + page_size * (size / page_size);
+}

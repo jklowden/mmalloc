@@ -8,7 +8,7 @@ CPPFLAGS = -D_BSD_SOURCE -I. -I$(LIBCRC.DIR)/include -DMALLOC_IS_MMALLOC
 CFLAGS = -g -std=c11
 LDFLAGS = -L$(LIBCRC.DIR)/lib -lcrc
 
-all: t/try libmmalloc.a sysconf
+all: t/try libmmalloc.a sysconf sqlite/config.o
 
 libmmalloc.a: alloc.o
 	$(AR) r $@ $^
@@ -18,3 +18,5 @@ t/try: t/try.o libmmalloc.a
 
 t/try.o: mmalloc.h
 
+TAGS: *.[ch] */*.[ch]
+	etags $^
