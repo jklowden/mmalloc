@@ -28,17 +28,17 @@ struct sqlite3_mem_methods {
 
 static void
 *xMalloc( int size ) {
-  mmalloc(size);
+  malloc(size);
 }
 
 static void
 xFree( void *p ) {
-  mfree(p);
+  free(p);
 }
 
 static void
 *xRealloc( void *ptr, int size ) {
-  mrealloc(ptr, size);
+  realloc(ptr, size);
 }
 
 static int
@@ -51,8 +51,14 @@ xRoundup( int size ) {
   return (int) mmrequired(size);
 }
 
+/*
+ * By calling mmalloc once, the global variables used to compute sizes
+ * in support of xSize and xRoundup are initialized.
+ */
 static int
-xInit( void *p ) {
+xInit( void *ptr ) {
+  void *p = mmalloc(1);
+  mfree(p);
   return SQLITE_OK;
 }
 
