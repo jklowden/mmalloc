@@ -1,4 +1,5 @@
 #include <mmalloc.h>
+#include <sqlite3.h>
 
 #include <err.h>
 
