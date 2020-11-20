@@ -128,7 +128,13 @@ Names a directory in which allocations are logged.  Each allocation creates a fi
 function returns.
 It is removed by
 .Fn mfree \& .
-Any files found in the directory after the application exits represent unfreed memory.  They may represent a memory leak or be harmless, as may be determined by the programmer. 
+Any files found in the directory after the application exits represent unfreed memory.  They may represent a memory leak or be harmless, as may be determined by the programmer.
+.It MMALLOC_BACKTRACE
+If set, the
+.Xr backtrace 3
+output of each allocation is written to a file in
+.Ev MMALLOC_LOGDIR ,
+where the filename is the hex representation of the pointer returned by mmalloc. This option helps in locating where an allocation made in the event it is later corrupted. 
 .
 .Sh ERRORS
 Contrary to the Posix standard, 

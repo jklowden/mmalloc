@@ -5,7 +5,7 @@ LIBCRC = libcrc.a
 .SUFFIXES: .a .so
 
 CPPFLAGS = -D_BSD_SOURCE -I. -I$(LIBCRC.DIR)/include -DMALLOC_IS_MMALLOC
-CFLAGS = -g -std=c11
+CFLAGS = -std=c11 -g -O0 -rdynamic
 LDFLAGS = -L$(LIBCRC.DIR)/lib -lcrc
 
 all: t/try libmmalloc.a libmmalloc-override.a sysconf sqlite/config.o

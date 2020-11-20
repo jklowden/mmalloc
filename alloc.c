@@ -1,6 +1,7 @@
 #include <assert.h>
 #include <err.h>
 #include <errno.h>
+#include <execinfo.h>
 #include <fcntl.h>
 #include <limits.h>
 #include <stdarg.h>
@@ -18,8 +19,10 @@
 
 #include <checksum.h>
 
+#define COUNT_OF(x) sizeof(x)/sizeof((x)[0])
+
 static size_t page_size;
-static const char *log_dir;
+static const char *log_dir, *log_backtrace;
 
 struct mgmt_t {
   char *base;
@@ -43,7 +46,8 @@ if( NULL == getenv("MMALLOC_VERBOSE") ) return;
 static char log_filename[PATH_MAX];
 
 void
-mmlog( const char func[], int line, const void *ptr ) {
+mlog( const char func[], int line, const void *ptr ) {
+  static size_t nalloc = 0;
   const struct mgmt_t *mgmt = (void*)((const char*)ptr - mgmt_size);
   char *s = log_filename; // re-use filename buffer 
   int fd;
@@ -60,28 +64,50 @@ mmlog( const char func[], int line, const void *ptr ) {
     return;
   }
 
-  Warnx("created %s", log_filename);
+  /*
+   * If called with a function and line, report it to the log file. 
+   * If not, write the backtrace instead. 
+   */
+  ++nalloc;
+  if( func ) {
+    int len = sprintf(s, "%s:%d [%zu]: %zu bytes allocated at %p, %zu total\n",
+		      func, line, nalloc,
+		      (mgmt->base + mgmt->len) - (char*)ptr,
+		      ptr,
+		      mgmt->len);
 
-  int len = sprintf(s, "%s:%d: %zu bytes allocated at %p, %zu total\n",
-		    func, line,
-		    (mgmt->base + mgmt->len) - (char*)ptr,
-		    ptr,
-		    mgmt->len);
+    if( -1 == write(fd, s, len) ) {
+      err(EXIT_FAILURE, "%s", func);
+    }
+  } else { // print backtrace
+    static char symbols[1024 * 24];
+    void *bt[24];
 
-  if( -1 == write(fd, s, len) ) {
-    err(EXIT_FAILURE, "%s", func);
+    int len = sprintf(s, "#%zu: %zu bytes allocated at %p, %zu total\n",
+		      nalloc,
+		      (mgmt->base + mgmt->len) - (char*)ptr,
+		      ptr,
+		      mgmt->len);
+
+    if( -1 == write(fd, s, len) ) {
+      err(EXIT_FAILURE, "%s", func);
+    }
+
+    int nbt = backtrace(bt, COUNT_OF(bt));
+
+    backtrace_symbols_fd(bt, nbt, fd);
   }
 
   if( -1 == close(fd) ) {
     err(EXIT_FAILURE, "%s", func);
   }
-  Warnx("%s", s);
 }
 
 static void
 munlog( const void *ptr ) {
   if( ! log_dir ) return;
-
+  if( log_backtrace ) return;
+  
   const struct mgmt_t *mgmt = (void*)((const char*)ptr - mgmt_size);
   sprintf(log_filename, "%s/%p", log_dir, mgmt->base);
   
@@ -122,6 +148,7 @@ map_anon( void *ptr, size_t size ) {
 	     log_dir, len, PATH_MAX - 32);
       }
     }
+    log_backtrace = getenv("MMALLOC_BACKTRACE");
   }
   assert(page_size > 0);
 
@@ -144,10 +171,22 @@ map_anon( void *ptr, size_t size ) {
 
   memcpy(p, &mgmt, mgmt_size);
 
-  char *pcrc = (char*)&((struct mgmt_t*)p)->crc;
-  size_t len = pcrc - mgmt.base;
+  char *pcrc = p + ( (char*)&mgmt.crc - (char*)&mgmt );
+  size_t len = pcrc - mgmt.base; // allocated space up to the CRC
   mgmt.crc = crc_32(mgmt.base, len);
-  memcpy(pcrc, &mgmt.crc, sizeof(mgmt.crc));
+  memcpy(pcrc, &mgmt.crc, sizeof(mgmt.crc)); // pcrc might not be aligned
+
+#if 0
+  warnx( "protecting %zu bytes (%p-%p) + CRC (%zu bytes)\n"
+	 "for size %zu at %p, ending at %p, total block %zu",
+	 len, mgmt.base, pcrc, sizeof(mgmt.crc),
+	 size, p + mgmt_size, p + mgmt_size + size,
+	 (p + mgmt_size + size) - mgmt.base );
+#endif
+  
+  if( log_backtrace ) {
+    mlog(NULL, 0, p + mgmt_size);
+  }
 
   return p + mgmt_size;
 }
