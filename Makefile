@@ -4,7 +4,11 @@ LIBCRC = libcrc.a
 
 .SUFFIXES: .a .so
 
-CPPFLAGS = -D_BSD_SOURCE -I. -I$(LIBCRC.DIR)/include -DMALLOC_IS_MMALLOC
+# modern glibc will complain if it doesn't see this:
+# #define _DEFAULT_SOURCE
+
+CPPFLAGS = -D_BSD_SOURCE -D_DEFAULT_SOURCE \
+	-I. -I$(LIBCRC.DIR)/include -DMALLOC_IS_MMALLOC
 CFLAGS = -std=c11 -g -O0 -rdynamic
 LDFLAGS = -L$(LIBCRC.DIR)/lib -lcrc
 
@@ -17,7 +21,8 @@ libmmalloc-override.a: alloc.o override.o
 	$(AR) r $@ $^
 
 override.o: override.c
-	$(CC) -c -o$@ $(CFLAGS) -D_BSD_SOURCE -I. -I$(LIBCRC.DIR)/include $^
+	$(CC) -c -o$@ $(CFLAGS) -D_BSD_SOURCE -D_DEFAULT_SOURCE \
+		-I. -I$(LIBCRC.DIR)/include $^
 
 t/try: t/try.o libmmalloc.a
 	$(CC) -o $@ $(CPPFLAGS) $(CFLAGS) $< -L. -lmmalloc $(LDFLAGS) 
