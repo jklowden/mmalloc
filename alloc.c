@@ -123,13 +123,19 @@ allocation_size( size_t size ) {
   return (1 + (mgmt_size + size) / page_size) * page_size;
 }
 
+// compute the pointer returned by malloc for page(s) described by mgmt_t. 
+static inline void *
+malloc_at( const struct mgmt_t mgmt, size_t size ) {
+  return mgmt.base + mgmt.len - size;
+}
+
 /*
  * Allocate 1 or more pages of memory.  Put allocation description
  * "behind" the returned pointer.  Return pointer to memory, just as
  * malloc(3).
  */
-char *
-map_anon( void *ptr, size_t size ) {
+static char *
+map_anon( size_t size ) {
   enum { offset = 0,
 	 prot = PROT_READ | PROT_WRITE,
 	 flags = MAP_PRIVATE | MAP_ANONYMOUS };
@@ -156,12 +162,12 @@ map_anon( void *ptr, size_t size ) {
 
   assert(mgmt.len >= mgmt_size + size);  
 
-  mgmt.base = mmap(ptr, mgmt.len, prot, flags, -1, 0);
+  mgmt.base = mmap(NULL, mgmt.len, prot, flags, -1, 0);
   if( mgmt.base == NULL ) {
     err(EXIT_FAILURE, "%s:%d: mmap", __func__, __LINE__ );
   }
 
-  char *p = mgmt.base + mgmt.len - (mgmt_size + size);
+  char *p = malloc_at(mgmt, size) - mgmt_size;
 
   if( true ) {
     char *pend = mgmt.base + mgmt.len;
@@ -193,7 +199,7 @@ map_anon( void *ptr, size_t size ) {
 
 void *
 mmalloc(size_t size) {
-  return map_anon(NULL, size);
+  return map_anon(size);
 }
 
 void
@@ -246,7 +252,7 @@ mfree(void *ptr) {
 
 void *
 mcalloc(size_t nelem, size_t size) {
-  return map_anon(NULL, nelem * size);
+  return map_anon(nelem * size);
 }
 
 static inline size_t
@@ -256,15 +262,16 @@ min( size_t a, size_t b) {
 
 void *
 mrealloc(void *ptr, size_t size) {
-  if( NULL == ptr ) return map_anon(ptr, size);
+  if( NULL == ptr ) return map_anon(size);
 
-  struct mgmt_t old = *(struct mgmt_t*) ((char*)ptr - mgmt_size);
+  struct mgmt_t old;
+  memcpy(&old, (char*)ptr - mgmt_size, mgmt_size);
 
-  char *p = map_anon(ptr, size);
+  void *p = map_anon(size);
 
   memcpy(p, old.base, min(size, old.len));
 
-  mfree(old.base);
+  mfree(ptr);
 
   return p;
 }
