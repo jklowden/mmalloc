@@ -56,7 +56,7 @@ mlog( const char func[], int line, const void *ptr ) {
 
   sprintf(log_filename, "%s/%p", log_dir, mgmt->base);
 
-  const int flags = O_WRONLY | O_CREAT | O_EXCL;
+  const int flags = O_WRONLY | O_CREAT | O_APPEND;
   const mode_t mode = S_IRUSR | S_IWUSR;
   
   if( (fd = open(log_filename, flags, mode)) == -1 ) {
